@@ -1,0 +1,47 @@
+  <script>
+      $(document).ready(function () {
+          {% set start_hue = range(0, 360) | random %}
+          {% set step_size = 360 / datasets | length %}
+          var ctx = document.getElementById("canvas").getContext('2d');
+          var config = {
+              type: 'line',
+              data: {
+                  datasets: [
+                      {% for dataset in data %}
+                          {% set color = 'hsla(' ~ (start_hue + step_size * loop.index0) ~ ', 50%, 50%, 0.5)' %}
+                          {
+                              label: {{ measurement.active_ports[loop.index0] }},
+                              data: {{ dataset.data | safe }},
+                              fill: false,
+                              backgroundColor: {{ color }},
+                              borderColor: {{ color }},
+                              lineTension: 0.2
+                          }
+                      {% endfor %}
+                  ]
+              },
+              options: {
+                  scales: {
+                      xAxes: [{
+                          type: 'linear',
+                          position: 'bottom',
+                          display: true,
+                          scaleLabel: {
+                              display: true,
+                              labelString: 'Time'
+                          }
+                      }],
+                      yAxes: [{
+                          display: true,
+                          scaleLabel: {
+                              display: false,
+                              labelString: 'Volts'
+                          }
+                      }]
+                  }
+              }
+          };
+          var myChart = new Chart(ctx, config);
+
+      });
+  </script>

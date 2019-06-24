@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block js %}
+  <script>
+      $(document).ready(function () {
+          {% set start_hue = 0 %}
+          {% set step_size = 360 / measurement.active_ports | length %}
+          var ctx = document.getElementById("canvas").getContext('2d');
+          var config = {
+              type: 'line',
+              data: {
+                  datasets: [
+                      {% for dataset in values %}
+                          {% set color = 'hsla(' ~ (start_hue + step_size * loop.index0)|int ~ ', 50%, 50%, 0.5)' %}
+                          {
+                              label: '{{ measurement.active_ports[loop.index0] }}',
+                              data: [{% for value in dataset %}
+                                  {x: {{ time_list[loop.index0] }},
+                                   y: {{ value }}}{{ ',' if not loop.last }}
+                                  {% endfor %}],
+                              fill: false,
+                              backgroundColor: '{{ color }}',
+                              borderColor: '{{ color }}',
+                              lineTension: 0.2
+                          }{{ ',' if not loop.last }}
+                      {% endfor %}
+                  ]
+              },
+              options: {
+                  scales: {
+                      xAxes: [{
+                          type: 'linear',
+                          position: 'bottom',
+                          display: true,
+                          scaleLabel: {
+                              display: true,
+                              labelString: 'Time'
+                          }
+                      }],
+                      yAxes: [{
+                          display: true,
+                          scaleLabel: {
+                              display: false,
+                              labelString: 'Volts'
+                          }
+                      }]
+                  }
+              }
+          };
+          var myChart = new Chart(ctx, config);
+      });
+  </script>
+{% endblock %}
+{% block css %}
+  <style>
+
+  </style>
+{% endblock %}
+{% block content %}
+  <div class="card mb-3">
+    <div class="card-header">
+      <i class="fa fa-table"></i> Results of {{ measurement.measurement_name }}</div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-12">
+          <div class="button-group pull-right">
+            <div class="btn-group">
+              <a href="{{ url_for("get_csv", identifier=measurement.id, full="True") }}" class="btn btn-info"><span class="fa fa-download" style="color:white;"></span></a>
+              <button class="btn btn-info dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="color:white;">
+                  <span class="sr-only">Toggle Dropdown</span>
+              </button>
+              <div class="dropdown-menu">
+                <a href="{{ url_for("get_csv", identifier=measurement.id) }}" class="dropdown-item" >Values only</a>
+              </div>
+            </div>
+            <a href={{ url_for("stop_measurement", identifier=measurement.id) }} class="btn btn-danger"><span class="fa fa-ban" style="color:white;"></a>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-6">
+          <table cellpadding="10">
+            <tr>
+              <td><strong>ID:</strong></td>
+              <td>{{ measurement.id }}</td>
+            </tr>
+            <tr>
+              <td><strong>Name:</strong></td>
+              <td>{{ measurement.measurement_name }}</td>
+            </tr>
+            <tr>
+              <td><strong>Description:</strong></td>
+              <td>{{ measurement.description }}</td>
+            </tr>
+            <tr hidden>
+              <td><strong>Issuer's email:</strong></td>
+              <td>{{ measurement.user_email }}</td>
+            </tr>
+            <tr>
+              <td><strong>Duration:</strong></td>
+              <td>{{ duration }}</td>
+            </tr>
+            <tr>
+              <td><strong>EVOM warmup:</strong></td>
+              <td>{{ measurement.warmup }} ms</td>
+            </tr>
+            <tr>
+              <td><strong>Series duration:</strong></td>
+              <td>{{ measurement.series_duration }} ms</td>
+            </tr>
+            <tr>
+              <td><strong>Measuring frequency:</strong></td>
+              <td>{{ measurement.frequency }} 1/s</td>
+            </tr>
+            <tr>
+              <td><strong>Relay initial wait:</strong></td>
+              <td>{{ measurement.relay_wait }} ms</td>
+            </tr>
+            <tr>
+              <td><strong>Used ports:</strong></td>
+              <td>{% for port in measurement.active_ports %}{{ port[-1] }}{{ ', ' if not loop.last }}{% endfor %}</td>
+            </tr>
+          </table>
+        </div>
+        <div class="col-md-6">
+          <p><strong>Phases</strong></p>
+          {% for phase in measurement.phases %}
+            <table cellpadding="5" style="border: 1px solid black;">
+              <tr>
+                <td>Duration:</td>
+                <td>{{ phase.duration[0] }} {{ phase.duration[1] }}</td>
+              </tr>
+              <tr>
+                <td>Delay:</td>
+                <td>{{ phase.delay_between_series[0] }} {{ phase.delay_between_series[1] }}</td>
+              </tr>
+            </table>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-12">
+          <canvas id="canvas" width="260" height="100">
+						Your browser is unfortunately not supported.
+					</canvas>
+        </div>
+      </div>
+      <div class="card-footer small text-muted"></div>
+    </div>
+{% endblock %}

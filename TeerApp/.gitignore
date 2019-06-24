@@ -1,0 +1,9 @@
+*.pyc
+/venv
+_pycache_
+restart.sh
+/static/results
+token
+smtp_auth
+.idea
+teercontroller/

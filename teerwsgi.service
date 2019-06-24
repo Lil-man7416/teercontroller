@@ -1,0 +1,8 @@
+[Unit]
+Description=uWSGI instance to serve teerproject
+
+[Service]
+ExecStart=/bin/bash -c 'cd /home/pi/TeerApp; source ./TeerApp/teerenv/bin/activate; uwsgi --ini ./teerproject.ini'
+
+[Install]
+WantedBy=multi-user.target

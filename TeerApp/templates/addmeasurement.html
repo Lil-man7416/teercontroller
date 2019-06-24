@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+{% block js %}
+<script src="{{ url_for('static', filename='vendor/jquery-ui/jquery-ui.min.js') }}"></script>
+<script>
+  $(document).ready(function(){
+    $( "#phaselist" ).sortable();
+
+    $(document).on('click', '.fa-remove', function () {
+      $(this).parents('.phase').fadeOut(100, function() {
+       $(this).remove()
+      });
+    });
+
+    var $template = $(".template");
+    var hash = {{ values.phases|length }};
+    $("#addphase").on("click", function () {
+      var $newPanel = $template.clone();
+      $newPanel.hide()
+      .attr("id", String(++hash))
+      .removeClass("template");
+
+      $("#phaselist").append($newPanel.fadeIn(200));
+      var t = document.getElementById(String(hash)).getElementsByClassName("temp");
+      for(var i=0; i<t.length; i++) {
+        t.item(i).id 		+= hash;
+        t.item(i).name 	+= hash;
+      }
+    });
+
+    $("#newmeasurement").submit(function () {
+      var order = $("#phaselist").sortable("toArray");
+      $("#order").val(order);
+
+      var checked = $("input[type=checkbox]:checked").length;
+      if(!checked) {
+        alert("You must select at least one port.");
+        return false;
+      }
+      return true;
+    });
+
+    var list = {{ template_names|safe }};  // TODO: possible XSS attack vulnerability.
+    var index = list.indexOf('default');
+    if (index > -1) {list.splice(index, 1)}
+    $('#templateNameId').keyup(function(){
+      $('#saveButtonId').prop('disabled', this.value == "");
+      $('#delButtonId').prop('disabled', list.indexOf(this.value) == -1);
+    })
+    .keyup();
+  });
+</script>
+{% endblock %}
+{% block css %}
+<style>
+  .phase-container {
+    padding: 20px;
+    overflow-y: auto;
+    max-height: 500px;
+  }
+
+  .field-container {
+    padding: 20px;
+  }
+
+  a[aria-expanded=true] .fa-angle-down {
+    display: none;
+  }
+
+  a[aria-expanded=false] .fa-angle-up {
+    display: none;
+  }
+
+  .template, .hidden {
+    display:none;
+  }
+
+  .fa-remove, .fa-plus{
+    cursor: pointer;
+    transform: scale(1.2);
+  }
+
+  .phase {
+    margin-bottom: 10px;
+  }
+
+  .small-info {
+    color: #A8A8A8;
+    font-size: 10px;
+  }
+
+</style>
+{% endblock %}
+{% block content %}
+<div class="card mb-3">
+  <div class="card-header">
+    <i class="fa fa-table"></i> Add new measurement</div>
+  <div class="card-body">
+    <form id="newmeasurement" method="post" action="{{ url_for("add_measurement") }}">
+      <div class="container-fluid">
+        <div class="row">
+          <div class="col-xl-6">
+            <div class="phase-container container">
+              <div class="row">
+                <div class="col-sm-8 mx-auto">
+                  <div class="row" style="margin-bottom: 20px; width: 95%;">
+                    <div class="col-xl-5">
+                      <div class="dropdown" >
+                        <button style="width: 100%;" class="btn btn-secondary dropdown-toggle pull-right" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                          Select saved
+                        </button>
+                        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                          {% for name in template_names %}
+                            <a class="dropdown-item" href="{{ url_for("load_template", template_name=name) }}">
+                              {{ name }}
+                            </a>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-xl-5">
+                      <input class="form-control" id="templateNameId" name="template_name" type="text" value="{% if values.template_name != "default" %}{{ values.template_name }}{% endif %}" placeholder="Template name">
+                    </div>
+                    <div class="col-xl-2">
+                      <div class="btn-group">
+                        <button class="btn btn-primary btn-info" type="submit" id="saveButtonId" name="save-template">
+                          <span class="fa fa-save"></span>
+                        </button>
+                        <button class="btn btn-primary btn-info" type="submit" id="delButtonId" name="del-template">
+                          <span class="fa fa-trash-o"></span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <p class="small-info">You can drag the panels to reorder</p>
+                  <ul id="phaselist" class="list-unstyled">
+                    {% macro phase(val=None, n="", template=False) %}
+                      {% if val is none %}
+                        {% set val = dict(duration=(20, "min"), delay_between_series=(15, "sec")) %}
+                      {% endif %}
+                      <li class="card phase {% if template %}template{% endif %}" id="{{ n }}">
+                        <div class="card-body">
+                          <div class="form-row">
+                            <div class="col-md-3">
+                              <label class="pull-right">
+                                <strong>Duration:</strong>
+                                <a data-toggle="tooltip" title="Duration of the phase. Can be in seconds, minutes, hours or days">
+                                  <span class="fa fa-info-circle  text-info"></span>
+                                </a>
+                              </label>
+                            </div>
+                            <div class="col-md-4 nopadding-right"><input step="any" id="durationId{{ n }}" type="number" min="0" class="form-control temp" name="duration{{ n }}" value="{{ val.duration[0] }}" required></div>
+                            <div class="col-md-4 nopadding-left">
+                              <select class="form-control temp" name="duration_unit{{ n }}" id="durationunitId{{ n }}">
+                                <option {% if val.duration[1] == "sec" %}selected{% endif %}>sec</option>
+                                <option {% if val.duration[1] == "min" %}selected{% endif %}>min</option>
+                                <option {% if val.duration[1] == "hour" %}selected{% endif %}>hour</option>
+                                <option {% if val.duration[1] == "day" %}selected{% endif %}>day</option>
+                              </select>
+                            </div>
+                            <div class="col-md-1 nopadding-left">
+                               <span class="fa fa-fw fa-remove text-warning"></span>
+                            </div>
+                          </div>
+                          <div class="form-row">
+                            <div class="col-md-3">
+                              <label class="pull-right">
+                                <strong>Delay:</strong>
+                                <a data-toggle="tooltip" title="The ports are measured always immedately after one another. This value sets the delay between these bursts of measurements.">
+                                  <span class="fa fa-info-circle  text-info"></span>
+                                </a>
+                              </label>
+                            </div>
+                            <div class="col-md-4 nopadding-right">
+                              <input placeholder="0 for continous" step="any" id="delayId{{ n }}" type="number" min="0" class="form-control temp" name="delay_between_series{{ n }}" value="{{ val.delay_between_series[0] }}" required>
+                            </div>
+                            <div class="col-md-4 nopadding-left">
+                              <select class="form-control temp" name="delay_unit{{ n }}" id="delay_unit_id{{ n }}">
+                                <option {% if val.delay_between_series[1] == "sec" %}selected{% endif %}>sec</option>
+                                <option {% if val.delay_between_series[1] == "min" %}selected{% endif %}>min</option>
+                                <option {% if val.delay_between_series[1] == "hour" %}selected{% endif %}>hour</option>
+                                <option {% if val.delay_between_series[1] == "day" %}selected{% endif %}>day</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div class="row hidden">
+                            <div class="col-md-3"><label class="pull-right">Flowrate:</label></div>
+                            <div class="col-md-5 nopadding-right">
+                              <input placeholder="Not implemented yet" id="flowId{{ n }}" type="number" step="any"  min="0" class="form-control temp" name="flow{{ n }}" disabled>
+                            </div>
+                            <div class="col-md-4 nopadding-left">
+                              <select class="form-control temp" name="flow_unit{{ n }}" id="flowunitId{{ n }}" disabled>
+                                <option>ml/min</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </li>
+                    {% endmacro %}
+                    {{ phase(template=True) }}
+                    {% for p in values.phases %}
+                      {{ phase(val=p, n=loop.index) }}
+                    {% endfor %}
+                  </ul>
+                  <div style="text-align: right; padding-right: 20px;">
+                    <span id="addphase" class="fa fa-fw fa-plus text-primary"></span>
+                  </div>
+                  <div class="form-group" hidden>
+                    <input type="text" id="order" name="order">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-xl-6">
+            <div class="field-container container">
+              <div class="row">
+                <div class="col-sm-10 mx-auto">
+                  <div class="form-group">
+                    <label for="measurementnameId"><strong>Measurement name</strong></label>
+                    <input class="form-control" id="measurementnameId" name="measurement_name" type="text" value="{{ values.measurement_name }}" aria-describedby="nameHelp" placeholder="e.g. hCMEC/D3 5 days" required>
+                  </div>
+                  <div class="form-group" hidden>
+                    <label for="useremailId"><strong>Email address</strong></label>
+                    <input class="form-control" id="useremailId" name="user_email" value="{{ values.user_email }}"  type="email" aria-describedby="emailHelp" placeholder="name@example.com">
+                  </div>
+                  <div class="form-group">
+                    <label for="descriptionId"><strong>Measurement description</strong></label>
+                    <textarea  class="form-control"  id="descriptionId" name="description" type="text-area" aria-describedby="emailHelp" placeholder="Enter description (e.g. port map)">{{ values.description }}</textarea>
+                  </div>
+                  <div class="form-group">
+                    <label for="ports"><strong>Select ports</strong></label>
+                    <div class="form-row">
+                      <div class="col-md-10 mx-auto">
+                        <div class="form-row" id="ports">
+                          <div class="col-md-3">
+                            <label class="checkbox-inline">
+                              <input type="checkbox" name="port1" value="" {% if "port1" in values.active_ports %}checked{% endif %}> port1
+                            </label>
+                          </div>
+                          <div class="col-md-3">
+                            <label class="checkbox-inline">
+                              <input type="checkbox" name="port2" value="" {% if "port2" in values.active_ports %}checked{% endif %}> port2
+                            </label>
+                          </div>
+                          <div class="col-md-3">
+                            <label class="checkbox-inline">
+                              <input type="checkbox" name="port3" value="" {% if "port3" in values.active_ports %}checked{% endif %}> port3
+                            </label>
+                          </div>
+                          <div class="col-md-3">
+                            <label class="checkbox-inline">
+                              <input type="checkbox" name="port4" value="" {% if "port4" in values.active_ports %}checked{% endif %}> port4
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group text-right">
+                    <a data-toggle="collapse" href="#calibration" aria-expanded="false" aria-controls="calibration">
+                      <i class="fa fa-fw fa-angle-up"></i>
+                      <i class="fa fa-fw fa-angle-down"></i>
+                      Calibration
+                    </a>
+                  </div>
+                  <div id="calibration" class="collapse">
+                    <div class="form-row">
+                      <div class="col-md-6">
+                        <label for="warmup_id">
+                          <strong>EVOM warmup (ms):</strong>
+                          <a data-toggle="tooltip" title="The EVOM device doesn't turn on immediadely. This value sets the wait before a measurement can be read from it.">
+                            <span class="fa fa-info-circle  text-info"></span>
+                          </a>
+                        </label>
+                        <input type="number" min="0" class="form-control" value="{{ values.warmup }}" name="warmup" id="warmup_id" required>
+                      </div>
+                      <div class="col-md-6">
+                        <label for="series_duration_id">
+                          <strong>Sampling duration (ms):</strong>
+                          <a data-toggle="tooltip" title="Sampling duration is the time period that the device will read from the EVOM device on each port.">
+                            <span class="fa fa-info-circle  text-info"></span>
+                          </a>
+                        </label>
+                        <input type="number" min="0" class="form-control" value="{{ values.series_duration }}" name="series_duration" id="series_duration_id" required>
+                      </div>
+                    </div>
+                    <div class="form-row">
+                      <div class="col-md-6">
+                        <label for="frequency_id">
+                          <strong>Sample/sec:</strong>
+                          <a data-toggle="tooltip" title="Sample/sec means the samples taken from EVOM each second.">
+                            <span class="fa fa-info-circle  text-info"></span>
+                          </a>
+                        </label>
+                        <input type="number" min="0" class="form-control" value="{{ values.frequency }}" name="frequency" id="frequency_id" required>
+                      </div>
+                      <div class="col-md-6">
+                        <label for="relay_wait_id">
+                          <strong>Relay transient (ms):</strong>
+                          <a data-toggle="tooltip" title="Relay transient value is the time it takes for the relays to switch on or off. No measurement is read during this time.">
+                            <span class="fa fa-info-circle  text-info"></span>
+                          </a>
+                        </label>
+                        <input type="number" min="0" class="form-control" value="{{ values.relay_wait }}" name="relay_wait" id="relay_wait_id" required>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group" style="margin-top: 25px;">
+                    <a href="{{ url_for("measurements") }}" style="padding-right: 20px;">Cancel</a>
+                    <input class="btn btn-primary" name="launch" type="submit" id="launch" value="Launch">
+                  </div>
+               </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+  <div class="card-footer small text-muted"></div>
+</div>
+{% endblock %}

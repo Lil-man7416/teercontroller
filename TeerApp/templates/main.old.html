@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+
+<html lang="en"> 
+<head>
+	<script src="{{ url_for('static', filename='jquery/jquery-3.2.1.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='jquery/jquery-ui.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='jquery/jquery.ui.touch-punch.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='jquery/Chart.bundle.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/segment-display.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/qrcode.min.js') }}"></script>
+	
+	
+	<script>
+		$(document).ready(function(){
+			$('a[data-toggle="tab"]').on('show.bs.tab', function(e) {
+				sessionStorage.setItem('activeTab', $(e.target).attr('href'));
+			});
+			var activeTab = sessionStorage.getItem('activeTab');
+			if(activeTab){
+				$('#tabs a[href="' + activeTab + '"]').tab('show');
+			};
+			
+			$('[data-toggle="tooltip"]').tooltip();
+			$( "#sortable-1" ).sortable();
+
+			var qrsettings =  { text: "",
+								width: 160,
+								height: 160,
+								colorDark : "#000000",
+								colorLight : "#ffffff"
+							   };
+
+			var qrcode = new QRCode(document.getElementById("qrcode"), qrsettings);
+			
+			var $template = $(".template");
+			var hash = 0;
+			$("#addPanel").on("click", function () {
+				var $newPanel = $template.clone();
+				$newPanel.hide()
+				.attr("id", String(++hash))
+				.removeClass("template");
+				
+				$("#sortable-1").append($newPanel.fadeIn());
+				
+				var t = document.getElementById(String(hash)).getElementsByClassName("temp");
+				
+				for(var i=0; i<t.length; i++)
+				{
+					t.item(i).id 		+= hash;	
+					t.item(i).name 	+= hash;
+				};
+			});
+			
+			$("#addPanel").trigger("click");
+
+			$(document).on('click', '.glyphicon-remove', function () {
+				$(this).parents('.panel').fadeOut(callback=function() {
+					$(this).remove()
+				});
+			});
+			
+			$("#formID").submit(function(e) {
+                e.preventDefault();
+                
+                // no internet available on the pi, only network. NTP service is disabled.
+                // So we send the client's time.
+                // beautiful line, isn't it?!
+                var date_string = (new Date()).toString().split(" ").slice(0, 5).toString().replace(/,/g, " ");				
+				$("#startloader").addClass("loader-animate")
+				$.getJSON('/_submit'
+					, $(	'input[name!=duration][name!=delay][name!=flow], '
+							+ 'select[name!=duration_unit][name!=delay_unit][name!=flow_unit],'
+							+	'textarea', "#formID").serialize()
+							+ "&order=" + $("#sortable-1").sortable("toArray")
+                            + "&date=" + date_string
+					, function(data) {
+							d = new Date(data.date);
+							$("#start").attr("style", "display:none")
+							$("#stop").removeAttr("style");
+							$("#startloader").removeClass("loader-animate")
+
+							qrcode.makeCode(data.link);
+							$("#success").show();
+							var link = $("#link");
+							link.text("Link to dropbox");
+							link.show();
+						  	link.attr("href", data.link);
+						});
+			});
+
+			
+			$("#stop").click(function(e) {
+				e.preventDefault();
+				$("#stoploader").addClass("loader-animate");
+				$.ajax({
+					url: "/_kill",
+					method: "GET",
+					success: function(result) {
+						d = new Date()
+						$("#start").removeAttr("style");
+						$("#stop").attr("style", "display:none");
+						$("#stoploader").removeClass("loader-animate");														
+					}
+				})
+			});
+			
+			$(document).change(function() {
+				
+			});
+			
+			$("#clear").click(function(e) {
+				$.getJSON('/_clear_result'
+					, $('input[name=to_be_cleared]').serialize()
+					, function() {
+							location.reload();
+					})
+			});
+			
+			$("#select_all").click(function(e){
+				var all = document.getElementsByName("to_be_cleared");
+				if ($(this).prop("checked")){
+					for (var i = 0; i < all.length; i++) {
+						all[i].checked = true;
+					}
+				} 
+				else if (!($(this).prop("checked"))){
+					for (var i = 0; i < all.length; i++) {
+						all[i].checked = false;
+					}
+				}
+			});
+			
+			$("input[name='to_be_cleared']").click(function(e){
+				var selec_all = document.getElementById("select_all");
+				select_all.checked = false;
+			});
+			
+			
+			
+			$("button[name=plotit]").click(function() {
+				$.getJSON('/_get_file_content',
+                    "&file=" + $(this).val(),
+                    function(a) {
+                        config['data']['datasets'] = [];
+                        $('#tabs a[href="#graph"]').tab('show');
+                        var hue = rand(360);
+                        console.log(hue);
+                        var step = 360 / a.ports.length;
+                        console.log(step);
+                        for (var i = 0; i < a.content.length; i++) {
+                            var color = 'hsla(' +  (hue + step * (i+1))  + ',' + 50 + '%,' + 50 + '%, 0.5)';
+                            config['data']['datasets'].push({
+                                label: a.ports[i],
+                                data: a.content[i],
+                                fill: false,
+                                backgroundColor: color,
+                                borderColor: color,
+                                lineTension: 0.2
+                            })
+                        }
+                        myChart = new Chart(ctx, config);
+                    }
+                );
+			});
+            
+            function rand(r) {
+                return Math.floor((Math.random() * r) + 1);
+            }
+			
+			
+			var ctx = document.getElementById("canvas").getContext('2d');
+			var config = {
+                            type: 'line',
+                            data: {
+                                    datasets: []
+                            },
+                            options: {
+                                scales: {
+                                    xAxes: [{
+                                        type: 'linear',
+                                        position: 'bottom',
+                                        display: true,
+                                        scaleLabel: {
+                                            display: true,
+                                            labelString: 'Time'
+                                        }
+                                    }],
+                                    yAxes: [{
+                                        display: true,
+                                        scaleLabel: {
+                                            display: false,
+                                            labelString: 'Volts'
+                                        }
+                                    }]
+                                }
+                            }
+                        };
+			var myChart = new Chart(ctx, config);
+
+		});
+		
+		
+		var display = new SegmentDisplay("display");
+		display.pattern         = "##:##:##:##";
+		display.displayAngle    = 6;
+		display.digitHeight     = 20;
+		display.digitWidth      = 14;
+		display.digitDistance   = 2.5;
+		display.segmentWidth    = 2;
+		display.segmentDistance = 0.3;
+		display.segmentCount    = 7;
+		display.cornerType      = 3;
+		display.colorOn         = "#000000";
+		display.colorOff        = "#ffffff";
+		display.draw();
+			
+			
+		window.setInterval('animate()', 100);
+		var d = new Date("{{ date }}");
+		function animate() {
+			var time    = new Date();
+			var diff 	= d - time;
+			if (diff <= 100) diff = 0;
+
+			var days	= parseInt(diff / 1000 / 60 / 60 / 24); diff -= days * 24 * 60 * 60 * 1000;
+			var hours   = parseInt(diff / 1000 / 60 / 60); 		diff -= hours * 60 * 60 * 1000;
+			var minutes = parseInt(diff / 1000 / 60);					diff -= minutes * 60 * 1000;
+			var seconds = parseInt(diff / 1000);
+			
+			var value   = ((days < 10) ? ' ' : '') + days
+						+ ':' + ((hours < 10) ? '0' : '') + hours
+						+ ':' + ((minutes < 10) ? '0' : '') + minutes
+						+ ':' + ((seconds < 10) ? '0' : '') + seconds;
+			display.setValue(value);
+		
+		
+		};
+
+	</script>
+
+	<meta charset="utf-8">
+	<title>TEER Controller</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+	<link href="{{ url_for('static', filename='css/jquery-ui.min.css') }}" rel="stylesheet">
+	<link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+	<style type='text/css'>
+		.center {
+			width: 50%;
+			margin: 0 auto;
+		}
+
+		a[aria-expanded=true] .glyphicon-menu-down {
+			display: none;
+		}
+		
+		a[aria-expanded=false] .glyphicon-menu-up {
+			display: none;
+		}
+		
+		.vertical-align {
+			display: flex;
+			align-items: center;
+		}
+		
+		.nopadding-left {
+		   padding-left: 0 !important;
+		}
+		
+		.nopadding-right {
+		   padding-right: 0 !important;
+		}
+		
+		.btn-width {
+			width: 100%
+		}
+		
+		.loader {
+			border: 2px solid #f3f3f3; /* Light grey */
+			border-radius: 50%;
+			width: 15px;
+			height: 15px;
+			
+			margin-top: 2px
+		}
+		
+		.loader-animate {
+			border-top: 2px solid #3498db; /* Blue */
+			animation: spin 1s linear infinite;
+		}
+		
+		
+		@keyframes spin {
+			0% { transform: rotate(0deg); }
+			100% { transform: rotate(360deg); } 
+		}
+		
+		
+		hr {
+			border:none;
+			border-top:2px dotted #00ace6;
+			color:#000000;
+			background-color:#fff;
+			height:1px;
+			width:90%;
+		}
+
+		/* show the move cursor as the user moves the mouse over the panel header.*/
+		#sortable-1 .panel-heading {
+			cursor: move;
+		}
+		.glyphicon-remove{
+			cursor: pointer;
+		}
+
+
+
+		.template {
+			display:none;
+		}
+		
+		html {
+		  overflow-y: scroll; 
+		}
+		
+		input[name=to_be_cleared], input[name=select_all]{
+			transform: scale(1.2);
+		}
+		
+}
+		
+	</style>
+</head> 
+<body>
+
+<div class="container">
+	<div class="row">
+		<div class="col-lg-6 col-lg-offset-3">
+			<div class="page-header">
+				<h2>TEER Controller</h2>
+			</div>
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="col-lg-4 col-lg-offset-4">
+			<form action="" class="" method="post" id="formID">
+				<div class="text-center">
+					<canvas id="display" width="260" height="100">
+						Your browser is unfortunately not supported.
+					</canvas>
+				</div>
+				
+				<ul class="nav nav-tabs" id="tabs">
+					<li class="active">
+						<a data-toggle="tab" href="#launch">
+							<span class="glyphicon glyphicon-play"></span>
+							Launch
+						</a>
+					</li>
+					<li>
+						<a data-toggle="tab" href="#phases">
+							<span class="glyphicon glyphicon-list-alt"></span>
+							Phases
+						</a>
+					</li>
+					<li>
+						<a data-toggle="tab" href="#options">
+							<span class="glyphicon glyphicon-wrench"></span>
+							Options
+						</a>
+					</li>
+					<li>
+						<a data-toggle="tab" href="#results">
+							<span class="glyphicon glyphicon-file"></span>
+							Results
+						</a>
+					</li>
+					<li>
+						<a data-toggle="tab" href="#graph">
+							<span class="glyphicon glyphicon-equalizer"></span>
+							Graph
+						</a>
+					</li>
+					<li>
+						<a data-toggle="tab" href="#help">
+							<span class="glyphicon glyphicon-question-sign"></span>
+							Help
+						</a>
+					</li>
+				</ul>
+				</br>
+				<div class="tab-content">
+					<div class="tab-pane in active" id="launch">
+						<div class="form-group text-center">
+							<button 	type="button" 
+												class="btn btn-warning btn-lg btn-width" 
+												style="{{ button[0] }}" 
+												id="stop">
+								STOP
+								<span id="stoploader" class="glyphicon loader pull-left"></span>
+							</button>
+							<button 	type="submit" 
+												class="btn btn-success btn-lg btn-width" 
+												style="{{ button[1] }}" 
+												id="start">
+								START
+								<span id="startloader" class="glyphicon loader pull-left"></span>
+							</button>
+                     </div>
+					<div class="qrcontainer" style="text-align: center;">
+						<p id="success" hidden>Measurement has started.</p>
+					</div>
+					<div class="qrcontainer" style="text-align: center;">
+						<a href="" id="link" target="_blank" hidden></a>
+					</div>
+					<div class="qrcontainer center">
+						<div style="margin-top: .5cm" id="qrcode"></div></div>
+					</div>
+					<div id="phases" class="tab-pane">
+						<div class="form-group">
+							<button type="button" id="addPanel" class="btn btn-info btn-block" >Add new phase</button>
+						</div>
+						<ul id="sortable-1" class="list-unstyled">
+							<li class="panel panel-info template">
+								<div class="panel-heading">Phase
+									<span class="glyphicon glyphicon-remove pull-right "></span>
+								</div>
+								<div class="panel-body">
+									<div class="row vertical-align">
+										<div class="col-md-3"><label class="pull-right">Duration:</label></div>
+										<div class="col-md-5 nopadding-right"><input step="any" id="durationId" type="number" min="0" class="form-control temp" name="duration" value="3"></div>
+										<div class="col-md-4 nopadding-left">
+											<select class="form-control temp" name="duration_unit" id="durationunitId">
+												<option>sec</option>
+												<option selected>min</option>
+												<option>hour</option>
+												<option>day</option>
+											</select>
+										</div>
+									</div>
+									<div class="row vertical-align">
+										<div class="col-md-3"><label class="pull-right">Delay:</label></div>
+										<div class="col-md-5 nopadding-right">
+											<input placeholder="0 for continous" step="any" id="delayId" type="number" min="0" class="form-control temp" name="delay" value="1">
+										</div>
+										<div class="col-md-4 nopadding-left">
+											<select class="form-control temp" name="delay_between_series" id="delay_between_series_id">
+												<option selected>sec</option>
+												<option>min</option>
+												<option>hour</option>
+												<option>day</option>
+											</select>
+										</div>
+									</div>
+									<div class="row vertical-align">
+										<div class="col-md-3"><label class="pull-right">Flowrate:</label></div>
+										<div class="col-md-5 nopadding-right">
+											<input placeholder="Not implemented yet" id="flowId" type="number" step="any"  min="0" class="form-control temp" name="flow" disabled>
+										</div>
+										<div class="col-md-4 nopadding-left">
+											<select class="form-control temp" name="flow_unit" id="flowunitId" disabled>
+												<option>ml/min</option>
+											</select>
+										</div>
+									</div>
+								</div>
+							</li>
+						</ul>
+					</div>
+
+
+
+					<div id="options" class="tab-pane">
+						<div class="form-group">
+							<label for="ports">Ports:</label>
+							<div class="row vertical-align" id="ports">
+								<div class="col-md-3">
+									<label class="checkbox-inline">
+										<input type="checkbox" name="port1" value="" checked>Port 1
+									</label>
+								</div>
+								<div class="col-md-3">
+									<label class="checkbox-inline">
+										<input type="checkbox" name="port2" value="">Port 2
+									</label>
+								</div>
+								<div class="col-md-3">	
+									<label class="checkbox-inline">
+										<input type="checkbox" name="port3" value="">Port 3
+									</label>
+								</div>
+								<div class="col-md-3">
+									<label class="checkbox-inline">
+										<input type="checkbox" name="port4" value="" checked>Port 4
+									</label>
+								</div>
+							</div>
+						</div>
+						<div class ="form-group">
+							<label for="filename">Filename:</label>
+							<div class="input-group">
+								<span class="input-group-addon" id="basic-addon1">Current date -</span> 
+								<input type="text" class="form-control" placeholder="Optional" name="filename" value="{{ request.form['filename'] }}" id="filename">
+							</div>
+						</div>
+						<div class="form-group">
+							<label for="description">Description:</label>
+							<textarea rows=3 class="form-control" name="description"  placeholder="Optional" id="description"></textarea>
+						</div>
+						<div class="form-group">
+							<label for="email">Email:</label>
+							<input type="text" class="form-control" name="email"  placeholder="Optional" id="email">
+						</div>
+						<div class="form-group text-right">
+							<a data-toggle="collapse" href="#calibration" aria-expanded="false" aria-controls="calibration">
+								<i class="glyphicon glyphicon-menu-down"></i>
+								<i class="glyphicon glyphicon-menu-up"></i>
+								Calibration
+							</a>
+						</div>
+						<div id="calibration" class="collapse">
+							<div class="form-group">
+								<label for="warmup_id">Warmup time (ms):</label>
+								<a data-toggle="tooltip" data-placement="right" title="asd ">
+									<span class="glyphicon glyphicon-question-sign"></span>>
+								</a>
+								<input type="number" min="0" class="form-control" value="{{ values['first_wait'] }}" name="warmup" id="warmup_id">
+							</div>
+							<div class="form-group">
+								<label for="series_duration_id">1 measurement length (ms):</label>
+								<a data-toggle="tooltip" data-placement="right" title="asd ">
+									<span class="glyphicon glyphicon-question-sign"></span>
+								</a>
+								<input type="number" min="0" class="form-control" value="{{ values['measure_time'] }}" name="series_duration" id="series_duration_id">
+							</div>
+							<div class="form-group">
+								<label for="frequency_id">Sample per sec (SPS):</label>
+								<a data-toggle="tooltip" data-placement="right" title="asd ">
+									<span class="glyphicon glyphicon-question-sign"></span>
+								</a>
+								<input type="number" min="0" class="form-control" value="{{ values['measure_freq'] }}" name="frequency" id="frequency_id">
+							</div>
+							<div class="form-group">
+								<label for="delay_in_series_id">Wait for relays (ms):</label>
+								<a data-toggle="tooltip" data-placement="right" title="asd ">
+									<span class="glyphicon glyphicon-question-sign"></span>
+								</a>
+								<input type="number" min="0" class="form-control" value="{{ values['relay_delay'] }}" name="delay_in_series" id="delay_in_series_id">
+							</div>
+						</div>
+					</div>
+
+					
+
+
+
+					<div class="tab-pane" id="results">
+						<div class="list-group">
+							{% if files %}
+									<input class="pull-left" style="margin-left: 16px" type="checkbox" id="select_all" name="select_all">
+									<br>
+								{% for file in files|sort(reverse=True) %}
+									<div class="list-group-item" >
+										<a href="{{ file[1] }}">{{file[0]}}</a>
+										<input type="checkbox" class="pull-left" name="to_be_cleared" value="{{ file[0] }}" style="margin-right: 10px" autocomplete="off">
+										<button type="button" class="btn btn-sm btn-info pull-right" style="margin-top: -5px" value="{{ file[0] }}" name="plotit">
+											<span class="glyphicon glyphicon-align-right" style="transform: rotate(90deg)"></span>
+										</button>
+									</div>
+									
+								{% endfor %}
+							{% else %}
+								<p>There are no results to show.</p>
+							{% endif %}
+						</div>
+						<button type="button" class="btn btn-info pull-left" style="margin-right: 7px" id="clear">
+							<span class="glyphicon glyphicon-trash"></span>
+						</button>
+					</div>
+					<div class="tab-pane" id="graph">
+						<div style="width:100%;">
+								<canvas id="canvas"></canvas>
+						</div>
+					</div>
+					<div class="tab-pane" id="help">
+						<div>
+						</div>
+					
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>	
+</div>
+
+<br>
+</body>
+</html>

@@ -1,0 +1,9 @@
+[Unit]
+Description=Multiprocessing Manager Server
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c 'cd /home/pi/TeerApp; source ./TeerApp/teerenv/bin/activate; python3 ControllerHubServer.py'
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+{
+  "warmup": 1.5,
+  "frequency": 30,
+  "series_duration": 1000,
+  "phases": {
+    "duration": 10,
+    "duration_unit": "min",
+    "delay_between_series": 60,
+    "delay_between_series_unit": "sec",
+    "flow": 10,
+    "flow_unit": "ml/s"
+  },
+  "relay_wait": 200
+}

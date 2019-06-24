@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block css %}
+<style>
+  .top-menu {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+  }
+
+  .top-menu a{
+    padding: 6px;
+    text-align: center;
+    text-decoration: none;
+  }
+  .top-menu a:hover {
+    background-color: #d3d9df;
+  }
+
+
+
+</style>
+{% endblock %}
+{% block content %}
+<div class="card mb-3">
+  <div class="card-header">
+    <i class="fa fa-table"></i> Current measurements</div>
+  <div class="card-body">
+    <div class="top-menu">
+      <a href="{{ url_for("add_measurement") }}">
+        <i class="fa fa-fw fa-plus"></i>
+        <span class="nav-link-text">Add</span>
+      </a>
+      <a href=".">
+        <i class="fa fa-fw fa-repeat"></i>
+        <span class="nav-link-text">Reload</span>
+      </a>
+    </div>
+    <div class="table-responsive">
+      <table class="table" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Duration</th>
+            <th hidden>Email</th>
+            <th>Ports</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if measurements %}
+            {% for m in measurements %}
+          <tr>
+            <td><a href="{{ url_for("measurement", identifier=m.id) }}">{{ m.measurement_name }}</a></td>
+            <td>{{ m.duration }}</td>
+            <td hidden>{{ m.user_email }}</td>
+            <td>{{ m.active_ports }}</td>
+            <td><a href={{ url_for("stop_measurement", identifier=m.id) }} class="btn btn-danger"><span class="fa fa-ban" style="color:white;"></a></td>
+          </tr>
+            {% endfor %}
+          {% else %}
+          <tr>
+            <td align="center" colspan="42">No measurements are running.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card-footer small text-muted"></div>
+</div>
+{% endblock %}

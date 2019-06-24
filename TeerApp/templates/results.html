@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card mb-3">
+  <div class="card-header">
+    <i class="fa fa-table"></i> Results</div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th aria-sort="descending">ID</th>
+            <th>Name</th>
+            <th>Duration</th>
+            <th hidden>Email</th>
+            <th>Ports</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in measurements %}
+            <tr>
+              <td>{{ m.id }}</td>
+              <td><a href="{{ url_for("result", identifier=m.id) }}">{{ m.measurement_name }}</a></td>
+              <td>{{ m.duration }}</td>
+              <td hidden>{{ m.user_email }}</td>
+              <td>{% for port in m.active_ports %}{{ port[-1] }}{{ ', ' if not loop.last }}{% endfor %}</td>
+              <td>
+                <a href="{{ url_for("get_csv", identifier=m.id, full="True") }}" class="btn btn-info"><span class="fa fa-download" style="color:white;"></span></a>
+                <a href='#' data-record-id="{{ url_for("delete_result", identifier=m.id) }}" data-record-title="{{ m.measurement_name }}" data-toggle="modal" data-target="#confirm-delete" class="btn btn-info"><span class="fa fa-trash-o" style="color:white;"></span></a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card-footer small text-muted"></div>
+</div>
+{% endblock %}
+{% block js %}
+<script>
+  $(document).ready(function() {
+    $('.sorting_asc').click();
+  });
+</script>
+{% endblock %}
